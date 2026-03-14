@@ -4,7 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>蜡笔画笔 - 用真实物件作画</title>
+    <title>蜡笔画笔</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@300;400;500&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -14,8 +17,10 @@
 
         body {
             overflow: hidden;
-            background: #f5f0e8;
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #faf9f7;
+            font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif;
+            font-weight: 300;
+            color: #3d3d3d;
         }
 
         #canvas {
@@ -25,19 +30,20 @@
 
         #camera-preview {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            width: 180px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-            opacity: 0.85;
+            bottom: 24px;
+            right: 24px;
+            width: 160px;
+            border-radius: 4px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+            opacity: 0.9;
             transform: scaleX(-1);
+            border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
         #start-screen {
             position: fixed;
             inset: 0;
-            background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d5 100%);
+            background: #faf9f7;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -46,32 +52,37 @@
         }
 
         #start-screen h1 {
-            font-size: 3rem;
-            color: #2c2c2c;
-            margin-bottom: 1rem;
-            letter-spacing: -1px;
+            font-size: 2.5rem;
+            font-weight: 300;
+            color: #2a2a2a;
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.3em;
         }
 
         #start-screen p {
-            color: #666;
-            margin-bottom: 2rem;
-            font-size: 1.1rem;
+            color: #8a8a8a;
+            margin-bottom: 3rem;
+            font-size: 0.9rem;
+            letter-spacing: 0.1em;
         }
 
         #start-btn {
-            padding: 16px 48px;
-            font-size: 1.2rem;
-            background: #2c2c2c;
-            color: #fff;
-            border: none;
-            border-radius: 50px;
+            padding: 14px 56px;
+            font-size: 0.85rem;
+            background: transparent;
+            color: #2a2a2a;
+            border: 1px solid #2a2a2a;
+            border-radius: 2px;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            font-family: inherit;
+            font-weight: 300;
+            letter-spacing: 0.2em;
+            transition: all 0.3s ease;
         }
 
         #start-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            background: #2a2a2a;
+            color: #faf9f7;
         }
 
         #current-color-bar {
@@ -79,106 +90,66 @@
             bottom: 0;
             left: 0;
             right: 0;
-            height: 60px;
-            background: rgba(255, 255, 255, 0.95);
+            height: 56px;
+            background: rgba(250, 249, 247, 0.95);
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 16px;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+            gap: 24px;
+            border-top: 1px solid rgba(0, 0, 0, 0.03);
         }
 
         #current-swatch {
-            width: 40px;
-            height: 40px;
+            width: 32px;
+            height: 32px;
             border-radius: 50%;
-            border: 3px solid #fff;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-        }
-
-        #label-btn {
-            padding: 8px 20px;
-            background: #f0f0f0;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.95rem;
-            transition: background 0.2s;
-        }
-
-        #label-btn:hover {
-            background: #e0e0e0;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
         }
 
         #clear-btn {
-            padding: 8px 16px;
-            background: #ff4757;
-            color: white;
-            border: none;
-            border-radius: 20px;
+            padding: 8px 20px;
+            background: transparent;
+            color: #8a8a8a;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 2px;
             cursor: pointer;
+            font-size: 0.75rem;
+            font-family: inherit;
+            font-weight: 300;
+            letter-spacing: 0.15em;
+            transition: all 0.2s ease;
+        }
+
+        #clear-btn:hover {
+            color: #2a2a2a;
+            border-color: #2a2a2a;
+        }
+
+        #save-btn {
+            padding: 8px 20px;
+            background: transparent;
+            color: #8a8a8a;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 2px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-family: inherit;
+            font-weight: 300;
+            letter-spacing: 0.15em;
+            transition: all 0.2s ease;
+        }
+
+        #save-btn:hover {
+            color: #2a2a2a;
+            border-color: #2a2a2a;
+        }
             font-size: 0.9rem;
             transition: background 0.2s;
         }
 
-        #clear-btn:hover {
-            background: #ff6b7a;
-        }
-
-        #source-modal {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 200;
-        }
-
-        #source-modal.show {
-            display: flex;
-        }
-
-        #source-modal-content {
-            background: #fff;
-            padding: 32px 48px;
-            border-radius: 20px;
-            text-align: center;
-            animation: popIn 0.3s ease;
-        }
-
-        @keyframes popIn {
-            from {
-                transform: scale(0.8);
-                opacity: 0;
-            }
-
-            to {
-                transform: scale(1);
-                opacity: 1;
-            }
-        }
-
-        #source-modal-content h2 {
-            font-size: 1.3rem;
-            color: #666;
-            margin-bottom: 8px;
-        }
-
-        #source-modal-content p {
-            font-size: 2rem;
-            font-weight: 600;
-            color: #2c2c2c;
-        }
-
-        #source-modal-close {
-            margin-top: 20px;
-            padding: 10px 30px;
-            background: #2c2c2c;
-            color: #fff;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
+        #save-btn:hover {
+            background: #27ae60;
         }
     </style>
 </head>
@@ -186,8 +157,8 @@
 <body>
     <div id="start-screen">
         <h1>蜡笔画笔</h1>
-        <p>拿起身边的彩色物品，对着摄像头作画</p>
-        <button id="start-btn">开始作画</button>
+        <p>用身边的物件作画</p>
+        <button id="start-btn">START</button>
     </div>
 
     <canvas id="canvas"></canvas>
@@ -195,16 +166,8 @@
 
     <div id="current-color-bar">
         <div id="current-swatch"></div>
-        <button id="label-btn">点击设置物品名称</button>
-        <button id="clear-btn">🗑️ 清空画布</button>
-    </div>
-
-    <div id="source-modal">
-        <div id="source-modal-content">
-            <h2>这个颜色来自——</h2>
-            <p id="source-object">苹果</p>
-            <button id="source-modal-close">知道了</button>
-        </div>
+        <button id="clear-btn">CLEAR</button>
+        <button id="save-btn">SAVE</button>
     </div>
 
     <script>
@@ -701,15 +664,11 @@
                 this.resize();
                 window.addEventListener('resize', () => this.resize());
 
-                // 笔触历史记录（用于点击识别）
-                this.strokeHistory = [];
-
                 // 当前状态
                 this.isDrawing = false;
                 this.lastX = window.innerWidth / 2;
                 this.lastY = window.innerHeight / 2;
                 this.currentColor = { r: 200, g: 200, b: 200 };
-                this.currentLabel = '未知物品';
 
                 // 绑定事件
                 this.bindEvents();
@@ -724,7 +683,7 @@
             }
 
             bindEvents() {
-                // 鼠标事件
+                // 鼠标事件（用于鼠标绘画模式）
                 this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
                 this.canvas.addEventListener('mousemove', (e) => this.draw(e));
                 this.canvas.addEventListener('mouseup', () => this.stopDrawing());
@@ -740,9 +699,6 @@
                     this.draw(e.touches[0]);
                 });
                 this.canvas.addEventListener('touchend', () => this.stopDrawing());
-
-                // 点击识别事件
-                this.canvas.addEventListener('click', (e) => this.handleClick(e));
             }
 
             startDrawing(e) {
@@ -772,15 +728,6 @@
                         const py = this.lastY + (y - this.lastY) * t;
 
                         this.strokeRenderer.drawCrayonStroke(px, py, this.currentColor);
-
-                        // 记录笔触历史
-                        this.strokeHistory.push({
-                            x: px,
-                            y: py,
-                            color: { ...this.currentColor },
-                            label: this.currentLabel,
-                            radius: 15
-                        });
                     }
 
                     this.lastX = x;
@@ -796,8 +743,48 @@
                 this.currentColor = color;
             }
 
-            setCurrentLabel(label) {
-                this.currentLabel = label;
+            // 清空画布
+            clear() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                // 重置位置到中心
+                this.lastX = this.canvas.width / 2;
+                this.lastY = this.canvas.height / 2;
+            }
+
+            // 保存图片
+            saveImage() {
+                // 创建临时 canvas 用于导出
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = this.canvas.width;
+                exportCanvas.height = this.canvas.height;
+                const exportCtx = exportCanvas.getContext('2d');
+
+                // 填充画布背景色（与页面背景相同）
+                exportCtx.fillStyle = '#faf9f7';
+                exportCtx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+                // 将当前画布内容复制到导出 canvas
+                exportCtx.drawImage(this.canvas, 0, 0);
+
+                // 获取当前日期
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const dateStr = `${year}-${month}-${day}`;
+
+                // 在右下角绘制日期 - 与网站风格一致
+                exportCtx.font = '300 24px "Zen Kaku Gothic New", "Noto Sans JP", sans-serif';
+                exportCtx.fillStyle = '#aaaaaa';
+                exportCtx.textAlign = 'right';
+                exportCtx.textBaseline = 'bottom';
+                exportCtx.fillText(dateStr, exportCanvas.width - 30, exportCanvas.height - 30);
+
+                // 导出图片
+                const link = document.createElement('a');
+                link.download = `crayon_${dateStr}.png`;
+                link.href = exportCanvas.toDataURL('image/png');
+                link.click();
             }
 
             // 空气画笔：根据摄像头位置自动绘制
@@ -820,50 +807,11 @@
                         const py = this.lastY + (y - this.lastY) * t;
 
                         this.strokeRenderer.drawCrayonStroke(px, py, this.currentColor);
-
-                        // 记录笔触历史
-                        this.strokeHistory.push({
-                            x: px,
-                            y: py,
-                            color: { ...this.currentColor },
-                            label: this.currentLabel,
-                            radius: 15
-                        });
                     }
 
                     this.lastX = x;
                     this.lastY = y;
                 }
-            }
-
-            handleClick(e) {
-                const x = e.clientX;
-                const y = e.clientY;
-
-                // 查找最近的笔触
-                let closest = null;
-                let minDist = Infinity;
-
-                for (const stroke of this.strokeHistory) {
-                    const dist = Math.sqrt(
-                        Math.pow(x - stroke.x, 2) + Math.pow(y - stroke.y, 2)
-                    );
-                    if (dist < stroke.radius * 2 && dist < minDist) {
-                        minDist = dist;
-                        closest = stroke;
-                    }
-                }
-
-                if (closest) {
-                    this.showSourceModal(closest.label);
-                }
-            }
-
-            showSourceModal(label) {
-                const modal = document.getElementById('source-modal');
-                const text = document.getElementById('source-object');
-                text.textContent = label;
-                modal.classList.add('show');
             }
         }
 
@@ -910,20 +858,14 @@
             }
 
             bindUIEvents() {
-                // 关闭模态框
-                document.getElementById('source-modal-close').addEventListener('click', () => {
-                    document.getElementById('source-modal').classList.remove('show');
+                // 清空画布按钮
+                document.getElementById('clear-btn').addEventListener('click', () => {
+                    this.canvasManager.clear();
                 });
 
-                document.getElementById('source-modal').addEventListener('click', (e) => {
-                    if (e.target === e.currentTarget) {
-                        e.currentTarget.classList.remove('show');
-                    }
-                });
-
-                // 标签按钮
-                document.getElementById('label-btn').addEventListener('click', () => {
-                    this.showLabelPicker();
+                // 保存图片按钮
+                document.getElementById('save-btn').addEventListener('click', () => {
+                    this.canvasManager.saveImage();
                 });
 
                 // 更新颜色指示器
@@ -964,132 +906,6 @@
                         }
                     }
                 }, 25); // 极快响应
-            }
-
-            showLabelPicker() {
-                // 创建标签选择器
-                const presetLabels = [
-                    '苹果', '树叶', '橙子', '香蕉', '草莓', '蓝莓',
-                    '红色杯子', '蓝色杯子', '绿色杯子', '咖啡杯',
-                    '衣服', '口红', '指甲油', '钥匙', '笔记本',
-                    '其他'
-                ];
-
-                // 创建选择器 UI
-                let pickerHTML = `
-                    <div id="label-picker" style="
-                        position: fixed;
-                        bottom: 80px;
-                        left: 50%;
-                        transform: translateX(-50%);
-                        background: white;
-                        padding: 16px;
-                        border-radius: 16px;
-                        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-                        display: grid;
-                        grid-template-columns: repeat(5, 1fr);
-                        gap: 8px;
-                        z-index: 150;
-                    ">
-                `;
-
-                presetLabels.forEach(label => {
-                    pickerHTML += `
-                        <button class="label-option" data-label="${label}" style="
-                            padding: 8px 12px;
-                            background: #f5f5f5;
-                            border: none;
-                            border-radius: 8px;
-                            cursor: pointer;
-                            font-size: 0.9rem;
-                            transition: background 0.2s;
-                        ">${label}</button>
-                    `;
-                });
-
-                // 添加语音输入按钮
-                pickerHTML += `
-                    <button id="voice-label-btn" style="
-                        grid-column: span 5;
-                        padding: 10px;
-                        background: #2c2c2c;
-                        color: white;
-                        border: none;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        font-size: 1rem;
-                    ">🎤 语音输入</button>
-                `;
-
-                pickerHTML += '</div>';
-
-                // 添加到页面
-                const picker = document.createElement('div');
-                picker.innerHTML = pickerHTML;
-                document.body.appendChild(picker);
-
-                // 绑定事件
-                picker.querySelectorAll('.label-option').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const label = btn.dataset.label;
-                        this.canvasManager.setCurrentLabel(label);
-                        document.getElementById('label-btn').textContent = label;
-                        picker.remove();
-                    });
-                });
-
-                // 语音输入
-                picker.querySelector('#voice-label-btn').addEventListener('click', () => {
-                    this.startVoiceInput();
-                    picker.remove();
-                });
-
-                // 点击外部关闭
-                setTimeout(() => {
-                    document.addEventListener('click', function closePicker(e) {
-                        if (!picker.contains(e.target) && e.target.id !== 'label-btn') {
-                            picker.remove();
-                            document.removeEventListener('click', closePicker);
-                        }
-                    });
-                }, 100);
-            }
-
-            startVoiceInput() {
-                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                    alert('您的浏览器不支持语音识别');
-                    return;
-                }
-
-                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-                const recognition = new SpeechRecognition();
-
-                recognition.lang = 'zh-CN';
-                recognition.interimResults = false;
-
-                const voiceBtn = document.getElementById('voice-label-btn');
-                if (voiceBtn) {
-                    voiceBtn.textContent = '🎤 正在听...';
-                }
-
-                recognition.onresult = (event) => {
-                    const transcript = event.results[0][0].transcript;
-                    this.canvasManager.setCurrentLabel(transcript);
-                    document.getElementById('label-btn').textContent = transcript;
-                };
-
-                recognition.onerror = (event) => {
-                    console.error('语音识别错误:', event.error);
-                    alert('语音识别失败，请重试或手动选择');
-                };
-
-                recognition.onend = () => {
-                    if (voiceBtn) {
-                        voiceBtn.textContent = '🎤 语音输入';
-                    }
-                };
-
-                recognition.start();
             }
         }
 
