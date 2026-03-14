@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>蜡笔画笔 - 用真实物件作画</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            background: #f5f0e8;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+
+        #canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        #camera-preview {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 180px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            opacity: 0.85;
+            transform: scaleX(-1);
+        }
+
+        #start-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #f5f0e8 0%, #e8e0d5 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+
+        #start-screen h1 {
+            font-size: 3rem;
+            color: #2c2c2c;
+            margin-bottom: 1rem;
+            letter-spacing: -1px;
+        }
+
+        #start-screen p {
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+
+        #start-btn {
+            padding: 16px 48px;
+            font-size: 1.2rem;
+            background: #2c2c2c;
+            color: #fff;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        #start-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        #current-color-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(255, 255, 255, 0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #current-swatch {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        #label-btn {
+            padding: 8px 20px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }
+
+        #label-btn:hover {
+            background: #e0e0e0;
+        }
+
+        #clear-btn {
+            padding: 8px 16px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+
+        #clear-btn:hover {
+            background: #ff6b7a;
+        }
+
+        #source-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        #source-modal.show {
+            display: flex;
+        }
+
+        #source-modal-content {
+            background: #fff;
+            padding: 32px 48px;
+            border-radius: 20px;
+            text-align: center;
+            animation: popIn 0.3s ease;
+        }
+
+        @keyframes popIn {
+            from {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        #source-modal-content h2 {
+            font-size: 1.3rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+
+        #source-modal-content p {
+            font-size: 2rem;
+            font-weight: 600;
+            color: #2c2c2c;
+        }
+
+        #source-modal-close {
+            margin-top: 20px;
+            padding: 10px 30px;
+            background: #2c2c2c;
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="start-screen">
+        <h1>蜡笔画笔</h1>
+        <p>拿起身边的彩色物品，对着摄像头作画</p>
+        <button id="start-btn">开始作画</button>
+    </div>
+
+    <canvas id="canvas"></canvas>
+    <video id="camera-preview" autoplay playsinline muted></video>
+
+    <div id="current-color-bar">
+        <div id="current-swatch"></div>
+        <button id="label-btn">点击设置物品名称</button>
+        <button id="clear-btn">🗑️ 清空画布</button>
+    </div>
+
+    <div id="source-modal">
+        <div id="source-modal-content">
+            <h2>这个颜色来自——</h2>
+            <p id="source-object">苹果</p>
+            <button id="source-modal-close">知道了</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== CameraManager =====
+        class CameraManager {
+            constructor() {
+                this.video = document.getElementById('camera-preview');
+                this.stream = null;
+            }
+
+            async init() {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 640 },
+                            height: { ideal: 480 },
+                            facingMode: 'user'
+                        }
+                    });
+                    this.video.srcObject = this.stream;
+                    await this.video.play();
+                    return true;
+                } catch (err) {
+                    console.error('摄像头初始化失败:', err);
+                    alert('无法访问摄像头，请确保已授予权限');
+                    return false;
+                }
+            }
+
+            getVideoElement() {
+                return this.video;
+            }
+
+            destroy() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                }
+            }
+        }
+
+        // ===== ColorExtractor =====
+        class ColorExtractor {
+            constructor(videoElement) {
+                this.video = videoElement;
+                this.canvas = document.createElement('canvas');
+                this.ctx = this.canvas.getContext('2d', { willReadFrequently: true });
+                this.canvas.width = 50;
+                this.canvas.height = 50;
+
+                // 平滑处理
+                this.colorHistory = [];
+                this.historySize = 5;
+
+                // 保存上一次有效颜色（避免返回灰色）
+                this.lastValidColor = { r: 200, g: 200, b: 200 };
+
+                // 运动检测和位置追踪
+                this.prevImageData = null;
+                this.prevPosition = { x: 0.5, y: 0.5 }; // 归一化坐标 (0-1)
+                this.motionThreshold = 15; // 颜色差异阈值
+                this.isMoving = false;
+
+                // 位置平滑 - 快速响应模式
+                this.currentPosition = { x: 0.5, y: 0.5 };
+
+                // 目标锁定 - 追踪最近检测到的物体颜色
+                this.targetColor = null;
+                this.lockRadius = 0.35; // 扩大搜索半径，更容易找到物体
+
+                // 保存上一帧用于帧差法
+                this.prevFrameData = null;
+            }
+
+            // 检测是否为皮肤颜色（使用 RGB 和 HSV 综合判断）
+            isSkinColor(r, g, b) {
+                // 转换到 HSV
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const hsv = { h: 0, s: 0, v: max / 255 };
+
+                if (max !== min) {
+                    const d = max - min;
+                    hsv.s = max === 0 ? 0 : d / max;
+                    switch (max) {
+                        case r: hsv.h = ((g - b) / d + (g < b ? 6 : 0)) * 60; break;
+                        case g: hsv.h = ((b - r) / d + 2) * 60; break;
+                        case b: hsv.h = ((r - g) / d + 4) * 60; break;
+                    }
+                }
+
+                // 皮肤颜色的主要特征：
+                // 1. 色调在 0-50 度（红色/橙色范围）或 340-360 度
+                // 2. 饱和度适中到较高 (0.1 - 0.8)
+                // 3. 亮度适中 (0.2 - 0.85)
+                // 4. R > B，且 R > G*0.6
+
+                const isHueInSkinRange = (hsv.h >= 0 && hsv.h <= 50) || (hsv.h >= 340 && hsv.h <= 360);
+                const isSatInSkinRange = hsv.s >= 0.1 && hsv.s <= 0.8;
+                const isValInSkinRange = hsv.v >= 0.2 && hsv.v <= 0.85;
+                const isRedDominated = r > b && r > g * 0.6;
+
+                // YCbCr 颜色空间的皮肤检测（更准确）
+                const y = 0.299 * r + 0.587 * g + 0.114 * b;
+                const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+                const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+
+                // YCbCr 皮肤范围
+                const inYCbCrRange = cb >= 77 && cb <= 127 && cr >= 133 && cr <= 173;
+
+                // 综合判断：要求 YCbCr 和 HSV 同时满足（更严格）
+                const hsvMatches = isHueInSkinRange && isSatInSkinRange && isValInSkinRange && isRedDominated;
+                if (inYCbCrRange && hsvMatches) return true;
+
+                return false;
+            }
+
+            // 检测是否为白色/灰色（背景）- 放宽条件
+            isWhiteOrGray(r, g, b) {
+                const max = Math.max(r, g, b);
+                const min = Math.min(r, g, b);
+                const saturation = max === 0 ? 0 : (max - min) / max;
+                const brightness = max / 255;
+
+                // 只有非常白的背景才过滤（极高亮度 + 极低饱和度）
+                return saturation < 0.08 && brightness > 0.9;
+            }
+
+            extractColor() {
+                const centerX = Math.floor(this.video.videoWidth / 2);
+                const centerY = Math.floor(this.video.videoHeight / 2);
+                const sampleSize = 25;
+
+                // 从中心区域采样
+                this.ctx.drawImage(
+                    this.video,
+                    centerX - sampleSize, centerY - sampleSize,
+                    sampleSize * 2, sampleSize * 2,
+                    0, 0, this.canvas.width, this.canvas.height
+                );
+
+                const imageData = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+                const data = imageData.data;
+
+                // 计算平均颜色（排除皮肤和白色背景）
+                let r = 0, g = 0, b = 0, count = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    // 跳过透明像素
+                    if (data[i + 3] < 128) continue;
+
+                    const pr = data[i];
+                    const pg = data[i + 1];
+                    const pb = data[i + 2];
+
+                    // 跳过皮肤颜色
+                    if (this.isSkinColor(pr, pg, pb)) continue;
+
+                    // 跳过白色/灰色背景
+                    if (this.isWhiteOrGray(pr, pg, pb)) continue;
+
+                    r += pr;
+                    g += pg;
+                    b += pb;
+                    count++;
+                }
+
+                if (count === 0) return this.lastValidColor;
+
+                r = Math.round(r / count);
+                g = Math.round(g / count);
+                b = Math.round(b / count);
+
+                // 保存为有效颜色
+                this.lastValidColor = { r, g, b };
+
+                // 添加到历史记录进行平滑
+                this.colorHistory.push({ r, g, b });
+                if (this.colorHistory.length > this.historySize) {
+                    this.colorHistory.shift();
+                }
+
+                // 返回平滑后的颜色
+                return this.getSmoothColor();
+            }
+
+            getSmoothColor() {
+                if (this.colorHistory.length === 0) return { r: 200, g: 200, b: 200 };
+
+                let r = 0, g = 0, b = 0;
+                this.colorHistory.forEach(c => {
+                    r += c.r;
+                    g += c.g;
+                    b += c.b;
+                });
+
+                return {
+                    r: Math.round(r / this.colorHistory.length),
+                    g: Math.round(g / this.colorHistory.length),
+                    b: Math.round(b / this.colorHistory.length)
+                };
+            }
+
+            // 检测运动和位置 - 使用帧差法 + 颜色匹配
+            detectMotion() {
+                const w = this.video.videoWidth;
+                const h = this.video.videoHeight;
+
+                if (!w || !h) return { hasMotion: false, position: this.currentPosition };
+
+                // 创建临时 canvas 采样全画面
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = 100;
+                tempCanvas.height = 75;
+                const tempCtx = tempCanvas.getContext('2d');
+
+                tempCtx.drawImage(this.video, 0, 0, tempCanvas.width, tempCanvas.height);
+                const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                const data = imageData.data;
+
+                // 如果有目标颜色，优先在目标颜色附近搜索
+                let searchArea = null;
+                if (this.targetColor && this.currentPosition) {
+                    const cx = Math.floor(this.currentPosition.x * tempCanvas.width);
+                    const cy = Math.floor(this.currentPosition.y * tempCanvas.height);
+                    const radius = Math.floor(this.lockRadius * tempCanvas.width);
+                    searchArea = {
+                        x1: Math.max(0, cx - radius),
+                        x2: Math.min(tempCanvas.width, cx + radius),
+                        y1: Math.max(0, cy - radius),
+                        y2: Math.min(tempCanvas.height, cy + radius)
+                    };
+                }
+
+                // 计算颜色重心
+                let totalWeight = 0;
+                let cx = 0, cy = 0;
+                let totalR = 0, totalG = 0, totalB = 0;
+
+                const startY = searchArea ? searchArea.y1 : 0;
+                const endY = searchArea ? searchArea.y2 : tempCanvas.height;
+                const startX = searchArea ? searchArea.x1 : 0;
+                const endX = searchArea ? searchArea.x2 : tempCanvas.width;
+
+                for (let y = startY; y < endY; y++) {
+                    for (let x = startX; x < endX; x++) {
+                        const i = (y * tempCanvas.width + x) * 4;
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+
+                        // 跳过皮肤
+                        if (this.isSkinColor(r, g, b)) continue;
+
+                        // 跳过白色/灰色
+                        if (this.isWhiteOrGray(r, g, b)) continue;
+
+                        // 计算饱和度
+                        const max = Math.max(r, g, b);
+                        const min = Math.min(r, g, b);
+                        const saturation = max === 0 ? 0 : (max - min) / max;
+                        const brightness = max / 255;
+
+                        if (saturation > 0.08 && brightness > 0.15 && brightness < 0.95) {
+                            // 如果有目标颜色，优先匹配目标颜色
+                            let weight = saturation * brightness;
+                            if (this.targetColor) {
+                                const colorDist = this.colorDistance(
+                                    { r, g, b },
+                                    this.targetColor
+                                );
+                                // 颜色越接近目标，权重越高
+                                weight *= Math.max(0, 1 - colorDist / 255);
+                            }
+
+                            if (weight > 0.01) {
+                                cx += x * weight;
+                                cy += y * weight;
+                                totalWeight += weight;
+                                totalR += r * weight;
+                                totalG += g * weight;
+                                totalB += b * weight;
+                            }
+                        }
+                    }
+                }
+
+                let position = { x: 0.5, y: 0.5 };
+                let avgColor = this.lastValidColor || { r: 200, g: 200, b: 200 };
+
+                // 如果找到了足够的彩色像素
+                if (totalWeight > 20) {
+                    position = {
+                        x: cx / totalWeight / tempCanvas.width,
+                        y: cy / totalWeight / tempCanvas.height
+                    };
+
+                    avgColor = {
+                        r: Math.round(totalR / totalWeight),
+                        g: Math.round(totalG / totalWeight),
+                        b: Math.round(totalB / totalWeight)
+                    };
+
+                    this.lastValidColor = avgColor;
+                    this.targetColor = avgColor; // 更新目标颜色
+                } else {
+                    // 如果没找到，放宽搜索范围到全图
+                    for (let y = 0; y < tempCanvas.height; y++) {
+                        for (let x = 0; x < tempCanvas.width; x++) {
+                            const i = (y * tempCanvas.width + x) * 4;
+                            const r = data[i];
+                            const g = data[i + 1];
+                            const b = data[i + 2];
+
+                            if (this.isSkinColor(r, g, b)) continue;
+                            if (this.isWhiteOrGray(r, g, b)) continue;
+
+                            const max = Math.max(r, g, b);
+                            const min = Math.min(r, g, b);
+                            const saturation = max === 0 ? 0 : (max - min) / max;
+                            const brightness = max / 255;
+
+                            if (saturation > 0.1 && brightness > 0.2 && brightness < 0.9) {
+                                const weight = saturation * brightness;
+                                cx += x * weight;
+                                cy += y * weight;
+                                totalWeight += weight;
+                            }
+                        }
+                    }
+
+                    if (totalWeight > 30) {
+                        position = {
+                            x: cx / totalWeight / tempCanvas.width,
+                            y: cy / totalWeight / tempCanvas.height
+                        };
+                    }
+                }
+
+                // 检测运动 - 直接比较，无延迟
+                const dx = position.x - this.currentPosition.x;
+                const dy = position.y - this.currentPosition.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const hasMotion = distance > 0.007; // 很低阈值，更灵敏
+
+                // 直接更新位置，无平滑延迟
+                this.currentPosition = { ...position };
+
+                return {
+                    hasMotion,
+                    position: this.currentPosition,
+                    color: avgColor
+                };
+            }
+
+            // 计算颜色距离
+            colorDistance(c1, c2) {
+                return Math.sqrt(
+                    Math.pow(c1.r - c2.r, 2) +
+                    Math.pow(c1.g - c2.g, 2) +
+                    Math.pow(c1.b - c2.b, 2)
+                );
+            }
+        }
+
+        // ===== StrokeRenderer =====
+        class StrokeRenderer {
+            constructor(ctx) {
+                this.ctx = ctx;
+            }
+
+            // 将 RGB 转换为 HSL 并添加随机变化
+            randomizeColor(r, g, b) {
+                // 转换为 HSL
+                let hr = r / 255, hg = g / 255, hb = b / 255;
+                const max = Math.max(hr, hg, hb), min = Math.min(hr, hg, hb);
+                let h, s, l = (max + min) / 2;
+
+                if (max === min) {
+                    h = s = 0;
+                } else {
+                    const d = max - min;
+                    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                    switch (max) {
+                        case hr: h = ((hg - hb) / d + (hg < hb ? 6 : 0)) / 6; break;
+                        case hg: h = ((hb - hr) / d + 2) / 6; break;
+                        case hb: h = ((hr - hg) / d + 4) / 6; break;
+                    }
+                }
+
+                // 添加 ±5% 的随机变化
+                h = (h * 360 + (Math.random() - 0.5) * 10) % 360;
+                if (h < 0) h += 360;
+                s = Math.max(0, Math.min(100, s * 100 + (Math.random() - 0.5) * 10));
+                l = Math.max(0, Math.min(100, l * 100 + (Math.random() - 0.5) * 10));
+
+                return this.hslToRgb(h, s, l);
+            }
+
+            hslToRgb(h, s, l) {
+                h /= 360; s /= 100; l /= 100;
+                let r, g, b;
+
+                if (s === 0) {
+                    r = g = b = l;
+                } else {
+                    const hue2rgb = (p, q, t) => {
+                        if (t < 0) t += 1;
+                        if (t > 1) t -= 1;
+                        if (t < 1 / 6) return p + (q - p) * 6 * t;
+                        if (t < 1 / 2) return q;
+                        if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+                        return p;
+                    };
+
+                    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+                    const p = 2 * l - q;
+                    r = hue2rgb(p, q, h + 1 / 3);
+                    g = hue2rgb(p, q, h);
+                    b = hue2rgb(p, q, h - 1 / 3);
+                }
+
+                return {
+                    r: Math.round(r * 255),
+                    g: Math.round(g * 255),
+                    b: Math.round(b * 255)
+                };
+            }
+
+            // 生成蜡笔质感笔触
+            drawCrayonStroke(x, y, color, pressure = 1) {
+                const { r, g, b } = this.randomizeColor(color.r, color.g, color.b);
+
+                // 主笔触 - 3 到 5 个重叠的圆形
+                const blobs = 3 + Math.floor(Math.random() * 3);
+                const baseRadius = 15 * pressure;
+
+                for (let i = 0; i < blobs; i++) {
+                    // 随机偏移
+                    const offsetX = (Math.random() - 0.5) * 20 * pressure;
+                    const offsetY = (Math.random() - 0.5) * 20 * pressure;
+                    const radius = baseRadius * (0.7 + Math.random() * 0.6);
+
+                    // 创建蜡笔纹理效果
+                    this.drawCrayonBlob(x + offsetX, y + offsetY, radius, r, g, b);
+                }
+            }
+
+            drawCrayonBlob(x, y, radius, r, g, b) {
+                const ctx = this.ctx;
+
+                // 创建径向渐变模拟蜡笔边缘
+                const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                gradient.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.9)`);
+                gradient.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, 0.7)`);
+                gradient.addColorStop(0.8, `rgba(${r}, ${g}, ${b}, 0.4)`);
+                gradient.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 添加噪点纹理
+                this.addNoiseTexture(x, y, radius, r, g, b);
+            }
+
+            addNoiseTexture(x, y, radius, r, g, b) {
+                const ctx = this.ctx;
+                const particleCount = Math.floor(radius * radius / 10);
+
+                for (let i = 0; i < particleCount; i++) {
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = Math.random() * radius;
+                    const px = x + Math.cos(angle) * dist;
+                    const py = y + Math.sin(angle) * dist;
+
+                    const alpha = Math.random() * 0.3;
+                    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                    ctx.beginPath();
+                    ctx.arc(px, py, 1 + Math.random() * 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // ===== CanvasManager =====
+        class CanvasManager {
+            constructor(canvas, strokeRenderer) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.strokeRenderer = strokeRenderer;
+
+                // 画布尺寸
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+
+                // 笔触历史记录（用于点击识别）
+                this.strokeHistory = [];
+
+                // 当前状态
+                this.isDrawing = false;
+                this.lastX = window.innerWidth / 2;
+                this.lastY = window.innerHeight / 2;
+                this.currentColor = { r: 200, g: 200, b: 200 };
+                this.currentLabel = '未知物品';
+
+                // 绑定事件
+                this.bindEvents();
+            }
+
+            resize() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+                // 重置位置到中心
+                this.lastX = this.canvas.width / 2;
+                this.lastY = this.canvas.height / 2;
+            }
+
+            bindEvents() {
+                // 鼠标事件
+                this.canvas.addEventListener('mousedown', (e) => this.startDrawing(e));
+                this.canvas.addEventListener('mousemove', (e) => this.draw(e));
+                this.canvas.addEventListener('mouseup', () => this.stopDrawing());
+                this.canvas.addEventListener('mouseleave', () => this.stopDrawing());
+
+                // 触摸事件
+                this.canvas.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    this.startDrawing(e.touches[0]);
+                });
+                this.canvas.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    this.draw(e.touches[0]);
+                });
+                this.canvas.addEventListener('touchend', () => this.stopDrawing());
+
+                // 点击识别事件
+                this.canvas.addEventListener('click', (e) => this.handleClick(e));
+            }
+
+            startDrawing(e) {
+                this.isDrawing = true;
+                this.lastX = e.clientX;
+                this.lastY = e.clientY;
+            }
+
+            draw(e) {
+                if (!this.isDrawing) return;
+
+                const x = e.clientX;
+                const y = e.clientY;
+
+                // 计算距离
+                const dist = Math.sqrt(
+                    Math.pow(x - this.lastX, 2) + Math.pow(y - this.lastY, 2)
+                );
+
+                // 只有移动一定距离才绘制
+                if (dist > 5) {
+                    // 绘制两点之间的插值
+                    const steps = Math.ceil(dist / 5);
+                    for (let i = 0; i < steps; i++) {
+                        const t = i / steps;
+                        const px = this.lastX + (x - this.lastX) * t;
+                        const py = this.lastY + (y - this.lastY) * t;
+
+                        this.strokeRenderer.drawCrayonStroke(px, py, this.currentColor);
+
+                        // 记录笔触历史
+                        this.strokeHistory.push({
+                            x: px,
+                            y: py,
+                            color: { ...this.currentColor },
+                            label: this.currentLabel,
+                            radius: 15
+                        });
+                    }
+
+                    this.lastX = x;
+                    this.lastY = y;
+                }
+            }
+
+            stopDrawing() {
+                this.isDrawing = false;
+            }
+
+            setCurrentColor(color) {
+                this.currentColor = color;
+            }
+
+            setCurrentLabel(label) {
+                this.currentLabel = label;
+            }
+
+            // 空气画笔：根据摄像头位置自动绘制
+            drawAtPosition(normalizedX, normalizedY) {
+                const x = normalizedX * this.canvas.width;
+                const y = normalizedY * this.canvas.height;
+
+                // 计算与上次位置的距离
+                const dist = Math.sqrt(
+                    Math.pow(x - this.lastX, 2) + Math.pow(y - this.lastY, 2)
+                );
+
+                // 只有移动一定距离才绘制（降低阈值让笔触更连贯）
+                if (dist > 4) {
+                    // 绘制两点之间的插值（增加插值密度）
+                    const steps = Math.ceil(dist / 4);
+                    for (let i = 0; i < steps; i++) {
+                        const t = i / steps;
+                        const px = this.lastX + (x - this.lastX) * t;
+                        const py = this.lastY + (y - this.lastY) * t;
+
+                        this.strokeRenderer.drawCrayonStroke(px, py, this.currentColor);
+
+                        // 记录笔触历史
+                        this.strokeHistory.push({
+                            x: px,
+                            y: py,
+                            color: { ...this.currentColor },
+                            label: this.currentLabel,
+                            radius: 15
+                        });
+                    }
+
+                    this.lastX = x;
+                    this.lastY = y;
+                }
+            }
+
+            handleClick(e) {
+                const x = e.clientX;
+                const y = e.clientY;
+
+                // 查找最近的笔触
+                let closest = null;
+                let minDist = Infinity;
+
+                for (const stroke of this.strokeHistory) {
+                    const dist = Math.sqrt(
+                        Math.pow(x - stroke.x, 2) + Math.pow(y - stroke.y, 2)
+                    );
+                    if (dist < stroke.radius * 2 && dist < minDist) {
+                        minDist = dist;
+                        closest = stroke;
+                    }
+                }
+
+                if (closest) {
+                    this.showSourceModal(closest.label);
+                }
+            }
+
+            showSourceModal(label) {
+                const modal = document.getElementById('source-modal');
+                const text = document.getElementById('source-object');
+                text.textContent = label;
+                modal.classList.add('show');
+            }
+        }
+
+        // ===== CrayonPainterApp =====
+        class CrayonPainterApp {
+            constructor() {
+                this.cameraManager = null;
+                this.colorExtractor = null;
+                this.canvasManager = null;
+                this.strokeRenderer = null;
+                this.isRunning = false;
+                this.colorUpdateInterval = null;
+            }
+
+            async init() {
+                // 初始化摄像头
+                this.cameraManager = new CameraManager();
+                const success = await this.cameraManager.init();
+
+                if (!success) {
+                    document.getElementById('start-screen').innerHTML = `
+                        <h1>摄像头不可用</h1>
+                        <p>请允许摄像头访问后刷新页面</p>
+                        <button onclick="location.reload()" style="padding: 16px 48px; font-size: 1.2rem; background: #2c2c2c; color: #fff; border: none; border-radius: 50px; cursor: pointer;">重新加载</button>
+                    `;
+                    return;
+                }
+
+                // 初始化颜色提取器
+                this.colorExtractor = new ColorExtractor(
+                    this.cameraManager.getVideoElement()
+                );
+
+                // 初始化画布
+                const canvas = document.getElementById('canvas');
+                this.strokeRenderer = new StrokeRenderer(canvas.getContext('2d'));
+                this.canvasManager = new CanvasManager(canvas, this.strokeRenderer);
+
+                // 绑定 UI 事件
+                this.bindUIEvents();
+
+                // 开始运行
+                this.start();
+            }
+
+            bindUIEvents() {
+                // 关闭模态框
+                document.getElementById('source-modal-close').addEventListener('click', () => {
+                    document.getElementById('source-modal').classList.remove('show');
+                });
+
+                document.getElementById('source-modal').addEventListener('click', (e) => {
+                    if (e.target === e.currentTarget) {
+                        e.currentTarget.classList.remove('show');
+                    }
+                });
+
+                // 标签按钮
+                document.getElementById('label-btn').addEventListener('click', () => {
+                    this.showLabelPicker();
+                });
+
+                // 更新颜色指示器
+                const updateSwatch = (color) => {
+                    const swatch = document.getElementById('current-swatch');
+                    swatch.style.backgroundColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+                };
+
+                this.colorExtractor.updateSwatch = updateSwatch;
+            }
+
+            start() {
+                this.isRunning = true;
+
+                // 隐藏启动画面
+                document.getElementById('start-screen').style.display = 'none';
+
+                // 定期检测运动并绘制
+                this.colorUpdateInterval = setInterval(() => {
+                    if (this.isRunning) {
+                        // 检测运动
+                        const motion = this.colorExtractor.detectMotion();
+
+                        // 直接使用 detectMotion 返回的颜色和位置
+                        const color = motion.color;
+                        this.canvasManager.setCurrentColor(color);
+
+                        // 如果检测到运动，自动绘制笔触
+                        if (motion.hasMotion) {
+                            // 摄像头是镜像的，所以 x 坐标需要翻转
+                            const mirrorX = 1 - motion.position.x;
+                            this.canvasManager.drawAtPosition(mirrorX, motion.position.y);
+                        }
+
+                        // 更新指示器
+                        if (this.colorExtractor.updateSwatch) {
+                            this.colorExtractor.updateSwatch(color);
+                        }
+                    }
+                }, 25); // 极快响应
+            }
+
+            showLabelPicker() {
+                // 创建标签选择器
+                const presetLabels = [
+                    '苹果', '树叶', '橙子', '香蕉', '草莓', '蓝莓',
+                    '红色杯子', '蓝色杯子', '绿色杯子', '咖啡杯',
+                    '衣服', '口红', '指甲油', '钥匙', '笔记本',
+                    '其他'
+                ];
+
+                // 创建选择器 UI
+                let pickerHTML = `
+                    <div id="label-picker" style="
+                        position: fixed;
+                        bottom: 80px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        background: white;
+                        padding: 16px;
+                        border-radius: 16px;
+                        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+                        display: grid;
+                        grid-template-columns: repeat(5, 1fr);
+                        gap: 8px;
+                        z-index: 150;
+                    ">
+                `;
+
+                presetLabels.forEach(label => {
+                    pickerHTML += `
+                        <button class="label-option" data-label="${label}" style="
+                            padding: 8px 12px;
+                            background: #f5f5f5;
+                            border: none;
+                            border-radius: 8px;
+                            cursor: pointer;
+                            font-size: 0.9rem;
+                            transition: background 0.2s;
+                        ">${label}</button>
+                    `;
+                });
+
+                // 添加语音输入按钮
+                pickerHTML += `
+                    <button id="voice-label-btn" style="
+                        grid-column: span 5;
+                        padding: 10px;
+                        background: #2c2c2c;
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        cursor: pointer;
+                        font-size: 1rem;
+                    ">🎤 语音输入</button>
+                `;
+
+                pickerHTML += '</div>';
+
+                // 添加到页面
+                const picker = document.createElement('div');
+                picker.innerHTML = pickerHTML;
+                document.body.appendChild(picker);
+
+                // 绑定事件
+                picker.querySelectorAll('.label-option').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const label = btn.dataset.label;
+                        this.canvasManager.setCurrentLabel(label);
+                        document.getElementById('label-btn').textContent = label;
+                        picker.remove();
+                    });
+                });
+
+                // 语音输入
+                picker.querySelector('#voice-label-btn').addEventListener('click', () => {
+                    this.startVoiceInput();
+                    picker.remove();
+                });
+
+                // 点击外部关闭
+                setTimeout(() => {
+                    document.addEventListener('click', function closePicker(e) {
+                        if (!picker.contains(e.target) && e.target.id !== 'label-btn') {
+                            picker.remove();
+                            document.removeEventListener('click', closePicker);
+                        }
+                    });
+                }, 100);
+            }
+
+            startVoiceInput() {
+                if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                    alert('您的浏览器不支持语音识别');
+                    return;
+                }
+
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                const recognition = new SpeechRecognition();
+
+                recognition.lang = 'zh-CN';
+                recognition.interimResults = false;
+
+                const voiceBtn = document.getElementById('voice-label-btn');
+                if (voiceBtn) {
+                    voiceBtn.textContent = '🎤 正在听...';
+                }
+
+                recognition.onresult = (event) => {
+                    const transcript = event.results[0][0].transcript;
+                    this.canvasManager.setCurrentLabel(transcript);
+                    document.getElementById('label-btn').textContent = transcript;
+                };
+
+                recognition.onerror = (event) => {
+                    console.error('语音识别错误:', event.error);
+                    alert('语音识别失败，请重试或手动选择');
+                };
+
+                recognition.onend = () => {
+                    if (voiceBtn) {
+                        voiceBtn.textContent = '🎤 语音输入';
+                    }
+                };
+
+                recognition.start();
+            }
+        }
+
+        // 启动应用
+        document.getElementById('start-btn').addEventListener('click', () => {
+            const app = new CrayonPainterApp();
+            app.init();
+        });
+    </script>
+</body>
+
+</html>
