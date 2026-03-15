@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的画展 - 物色</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="js/supabase-config.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #faf9f7;
+            font-family: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif;
+            font-weight: 300;
+            color: #3d3d3d;
+        }
+
+        .header {
+            padding: 40px 24px;
+            text-align: center;
+        }
+
+        .gallery-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .tab-btn {
+            padding: 8px 20px;
+            background: transparent;
+            color: #8a8a8a;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: #2a2a2a;
+            border-color: #2a2a2a;
+        }
+
+        .tab-btn.active {
+            background: #2a2a2a;
+            color: #faf9f7;
+            border-color: #2a2a2a;
+        }
+
+        .auth-status {
+            font-size: 0.75rem;
+            color: #aaa;
+            margin-top: 8px;
+        }
+
+        .auth-status a {
+            color: #2a2a2a;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 300;
+            color: #2a2a2a;
+            letter-spacing: 0.3em;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #8a8a8a;
+            font-size: 0.85rem;
+        }
+
+        .back-btn {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            padding: 8px 16px;
+            background: transparent;
+            color: #8a8a8a;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.75rem;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+
+        .back-btn:hover {
+            color: #2a2a2a;
+            border-color: #2a2a2a;
+        }
+
+        .gallery {
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            color: #aaa;
+        }
+
+        .empty-state p {
+            margin-bottom: 20px;
+        }
+
+        .empty-state button {
+            padding: 12px 32px;
+            background: transparent;
+            color: #2a2a2a;
+            border: 1px solid #2a2a2a;
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.8rem;
+            letter-spacing: 0.15em;
+            transition: all 0.3s ease;
+        }
+
+        .empty-state button:hover {
+            background: #2a2a2a;
+            color: #faf9f7;
+        }
+
+        .artwork-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 32px;
+        }
+
+        .artwork-card {
+            background: #fff;
+            border-radius: 2px;
+            overflow: hidden;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+        }
+
+        .artwork-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+
+        .artwork-image {
+            width: 100%;
+            height: 200px;
+            background: #f0f0f0;
+            overflow: hidden;
+        }
+
+        .artwork-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #faf9f7;
+        }
+
+        .artwork-info {
+            padding: 16px;
+        }
+
+        .artwork-name {
+            font-size: 0.95rem;
+            font-weight: 400;
+            color: #2a2a2a;
+            margin-bottom: 8px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .artwork-date {
+            font-size: 0.75rem;
+            color: #aaa;
+            margin-bottom: 12px;
+        }
+
+        .artwork-materials {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .material-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 2px;
+            object-fit: cover;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .materials-label {
+            font-size: 0.7rem;
+            color: #aaa;
+            letter-spacing: 0.1em;
+        }
+
+        /* 大图弹窗 */
+        #lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 300;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 40px;
+        }
+
+        #lightbox.active {
+            display: flex;
+        }
+
+        .lightbox-image {
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+        }
+
+        .lightbox-info {
+            text-align: center;
+            color: #fff;
+            margin-top: 20px;
+        }
+
+        .lightbox-name {
+            font-size: 1.2rem;
+            margin-bottom: 8px;
+        }
+
+        .lightbox-date {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 16px;
+        }
+
+        .lightbox-materials {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .lightbox-materials .material-thumb {
+            width: 48px;
+            height: 36px;
+            object-fit: cover;
+            border-radius: 2px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .lightbox-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 2rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .lightbox-close:hover {
+            opacity: 1;
+        }
+
+        .delete-btn {
+            margin-top: 16px;
+            padding: 8px 20px;
+            background: transparent;
+            color: #ff6b6b;
+            border: 1px solid #ff6b6b;
+            border-radius: 2px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.75rem;
+            letter-spacing: 0.1em;
+            transition: all 0.2s ease;
+        }
+
+        .delete-btn:hover {
+            background: #ff6b6b;
+            color: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <button class="back-btn" onclick="window.location.href='crayon-painter.html'">← 返回</button>
+
+    <div class="header">
+        <div class="gallery-tabs">
+            <button class="tab-btn active" data-tab="public" onclick="switchTab('public')">公共画展</button>
+            <button class="tab-btn" data-tab="mine" onclick="switchTab('mine')">我的画展</button>
+        </div>
+        <p class="auth-status" id="auth-status"></p>
+    </div>
+
+    <div class="gallery" id="gallery">
+        <!-- 作品将在这里展示 -->
+    </div>
+
+    <!-- 大图弹窗 -->
+    <div id="lightbox">
+        <button class="lightbox-close" onclick="closeLightbox()">×</button>
+        <img class="lightbox-image" id="lightbox-image" src="" alt="">
+        <div class="lightbox-info">
+            <div class="lightbox-name" id="lightbox-name"></div>
+            <div class="lightbox-date" id="lightbox-date"></div>
+            <div class="lightbox-materials" id="lightbox-materials"></div>
+            <button class="delete-btn" id="delete-btn">删除</button>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'wuse_artworks';
+        let currentTab = 'public'; // 'public' or 'mine'
+        let currentUser = null;
+        let cloudArtworks = [];
+        let localArtworks = [];
+
+        // 初始化
+        window.addEventListener('DOMContentLoaded', async () => {
+            await checkAuth()
+            loadLocalArtworks()
+            await loadCloudArtworks()
+            renderGallery()
+            updateAuthStatus()
+
+            // 监听登录状态变化
+            if (window.supabase) {
+                supabase.auth.onAuthStateChange((event, session) => {
+                    currentUser = session?.user || null
+                    updateAuthStatus()
+                    loadCloudArtworks().then(() => renderGallery())
+                })
+            }
+        })
+
+        async function checkAuth() {
+            if (!window.supabase) return
+            const { data: { session } } = await supabase.auth.getSession()
+            currentUser = session?.user || null
+        }
+
+        function loadLocalArtworks() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            localArtworks = stored ? JSON.parse(stored) : [];
+        }
+
+        async function loadCloudArtworks() {
+            if (!window.supabase) {
+                cloudArtworks = [];
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('artworks')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+
+                if (error) throw error
+
+                cloudArtworks = data.map(artwork => ({
+                    id: artwork.id,
+                    name: artwork.name,
+                    createdAt: new Date(artwork.created_at).toLocaleString('zh-CN'),
+                    imageData: artwork.image_url,
+                    imageUrl: artwork.image_url,
+                    materials: artwork.materials || [],
+                    userId: artwork.user_id,
+                    isCloud: true
+                }))
+            } catch (error) {
+                console.error('加载云端作品失败:', error)
+                cloudArtworks = [];
+            }
+        }
+
+        function getCurrentArtworks() {
+            if (currentTab === 'mine') {
+                // 我的画展：本地 + 云端自己的作品
+                const myCloud = currentUser
+                    ? cloudArtworks.filter(a => a.userId === currentUser.id)
+                    : []
+                return [...localArtworks, ...myCloud]
+            } else {
+                // 公共画展：所有云端作品 + 本地作品（本地作为匿名用户）
+                return [...cloudArtworks, ...localArtworks]
+            }
+        }
+
+        function renderGallery() {
+            const artworks = getCurrentArtworks()
+            const gallery = document.getElementById('gallery')
+
+            // 更新 tab 状态
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === currentTab)
+            })
+
+            if (artworks.length === 0) {
+                const emptyMessage = currentTab === 'mine'
+                    ? '你还没有作品，去创作一幅吧！'
+                    : '还没有作品，快去创作吧！'
+
+                gallery.innerHTML = `
+                    <div class="empty-state">
+                        <p>${emptyMessage}</p>
+                        <button onclick="window.location.href='crayon-painter.html'">开始创作</button>
+                    </div>
+                `
+                return
+            }
+
+            gallery.innerHTML = `<div class="artwork-grid">${artworks.map((artwork, index) => {
+                const imageSrc = artwork.imageUrl || artwork.imageData
+                return `
+                <div class="artwork-card" onclick="showLightbox(${index})">
+                    <div class="artwork-image">
+                        <img src="${imageSrc}" alt="${artwork.name}">
+                    </div>
+                    <div class="artwork-info">
+                        <div class="artwork-name">${artwork.name}</div>
+                        <div class="artwork-date">${artwork.createdAt}</div>
+                        ${artwork.materials && artwork.materials.length > 0 ? `
+                        <div class="artwork-materials">
+                            <span class="materials-label">材料</span>
+                            ${artwork.materials.slice(0, 5).map(m => `
+                                <img class="material-thumb" src="${m.thumbnail || ''}" alt="画材">
+                            `).join('')}
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `}).join('')}</div>`
+        }
+
+        function switchTab(tab) {
+            currentTab = tab
+            renderGallery()
+        }
+
+        function updateAuthStatus() {
+            const statusEl = document.getElementById('auth-status')
+            if (currentUser) {
+                statusEl.innerHTML = `已登录 | <a href="#" onclick="signOut()">登出</a>`
+            } else {
+                statusEl.innerHTML = `未登录 | <a href="#" onclick="signIn()">登录</a> 查看我的画展`
+            }
+        }
+
+        async function signIn() {
+            if (!window.supabase) {
+                alert('请先配置 Supabase')
+                return
+            }
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'google',
+                options: { redirectTo: window.location.href }
+            })
+            if (error) alert('登录失败: ' + error.message)
+        }
+
+        async function signOut() {
+            if (!window.supabase) return
+            await supabase.auth.signOut()
+            currentUser = null
+            updateAuthStatus()
+            renderGallery()
+        }
+
+        let currentArtworkIndex = null;
+        let currentArtworkIsCloud = false;
+
+        function showLightbox(index) {
+            const artworks = getCurrentArtworks();
+            const artwork = artworks[index];
+            currentArtworkIndex = index;
+            currentArtworkIsCloud = artwork.isCloud;
+
+            const imageSrc = artwork.imageUrl || artwork.imageData
+
+            document.getElementById('lightbox-image').src = imageSrc;
+            document.getElementById('lightbox-name').textContent = artwork.name;
+            document.getElementById('lightbox-date').textContent = artwork.createdAt;
+
+            // 画材缩略图
+            const materialsContainer = document.getElementById('lightbox-materials');
+            if (artwork.materials && artwork.materials.length > 0) {
+                materialsContainer.innerHTML = '<span class="materials-label" style="color:#aaa">材料 </span>' +
+                    artwork.materials.map(m => `
+                        <img class="material-thumb" src="${m.thumbnail || ''}" alt="画材">
+                    `).join('');
+            } else {
+                materialsContainer.innerHTML = '<span style="color:#666">无画材记录</span>';
+            }
+
+            document.getElementById('lightbox').classList.add('active');
+
+            // 删除按钮 - 只有自己的作品才能删除
+            const canDelete = !artwork.isCloud ||
+                (currentUser && artwork.userId === currentUser.id)
+
+            document.getElementById('delete-btn').style.display = canDelete ? 'inline-block' : 'none'
+
+            if (canDelete) {
+                document.getElementById('delete-btn').onclick = (e) => {
+                    e.stopPropagation();
+                    if (confirm('确定要删除这幅作品吗？')) {
+                        deleteArtwork(artwork, index);
+                    }
+                };
+            }
+        }
+
+        async function deleteArtwork(artwork, index) {
+            if (artwork.isCloud) {
+                // 删除云端作品
+                if (!currentUser || artwork.userId !== currentUser.id) {
+                    alert('无法删除他人作品')
+                    return
+                }
+
+                try {
+                    const { error } = await supabase
+                        .from('artworks')
+                        .delete()
+                        .eq('id', artwork.id)
+
+                    if (error) throw error
+
+                    // 从数组中移除
+                    cloudArtworks = cloudArtworks.filter(a => a.id !== artwork.id)
+                } catch (error) {
+                    console.error('删除失败:', error)
+                    alert('删除失败: ' + error.message)
+                    return
+                }
+            } else {
+                // 删除本地作品
+                localArtworks.splice(index, 1)
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(localArtworks))
+            }
+
+            closeLightbox()
+            renderGallery()
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox').classList.remove('active');
+            currentArtworkIndex = null;
+        }
+
+        // 点击遮罩关闭
+        document.getElementById('lightbox').addEventListener('click', (e) => {
+            if (e.target.id === 'lightbox') {
+                closeLightbox();
+            }
+        });
+    </script>
+</body>
+
+</html>
